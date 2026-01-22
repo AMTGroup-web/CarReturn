@@ -32,7 +32,7 @@
             messagingSenderId: "889535468734",
             appId: "1:889535468734:web:df5f7fd479283d927b7aef",
             measurementId: "G-R6CESPWH25"
-        };
+  };
 
         // Initialize Firebase
         const firebaseApp = firebase.initializeApp(firebaseConfig);
@@ -278,7 +278,7 @@
     </div>
 
     <script>
-        const API_URL = 'https://script.google.com/macros/s/AKfycbwq63OctmjPyS_AH9UDmiuxVhaNxCblCUweGDOZxLDLfavJnRoJwnMSDuZKH9K4eWC9/exec';
+        const API_URL = 'https://script.google.com/macros/s/AKfycbxrBmEkW479Om9E9aTFQIdiwiXjLTOSRf0YrCI3_dSRBbyu7XKlxvHH-NpmKn_ITURF/exec';
 
         const { createApp, ref, reactive, computed, watch, onMounted } = Vue;
 
@@ -289,16 +289,65 @@
                 const submitting = ref(false);
                 const showSuccess = ref(false);
 
-                const cars = [
-                    { id: 1, plate: 'ญช 908 กท', model: 'Cap', color: 'สีขาว', type: 'Fuel' },
-                    { id: 2, plate: 'ฎฮ 9043 กท', model: 'Optra', color: 'สีดำ', type: 'Fuel' },
-                    { id: 3, plate: '1ขท 3650 กท', model: 'Optra', color: 'สีเทา', type: 'Fuel' },
-                    { id: 4, plate: 'สท 4690 กท', model: 'Optra', color: 'สีขาว', type: 'Fuel' },
-                    { id: 5, plate: '3ขช 2404 กท', model: 'Optra', color: 'สีเงิน', type: 'Fuel' },
-                    { id: 6, plate: '3ขช 3222 กท', model: 'Cap', color: 'สีน้ำตาล', type: 'Fuel' },
-                    { id: 7, plate: 'บ 3004 กท', model: 'MG4', color: 'สีขาว', type: 'EV' },
-                    { id: 8, plate: 'ฮ 2227 กท', model: 'MG4', color: 'สีเทา', type: 'EV' }
-                ];
+                // Cars from Firebase (dynamic)
+                const cars = ref([]);
+
+                // Fetch cars from Firebase with retry
+                const fetchCarsFromFirebase = async (retryCount = 0) => {
+                    console.log('🚗 Fetching cars from Firebase... (attempt ' + (retryCount + 1) + ')');
+
+                    // Wait for Firebase to be ready (max 5 retries)
+                    if (!window.firebaseDB || !window.firebaseRef || !window.firebaseGet) {
+                        if (retryCount < 5) {
+                            console.log('⏳ Firebase not ready, retrying in 500ms...');
+                            setTimeout(() => fetchCarsFromFirebase(retryCount + 1), 500);
+                            return;
+                        }
+                        console.warn('❌ Firebase not ready after 5 retries, using fallback');
+                        cars.value = [
+                            { id: 1, plate: 'ญช 908 กท', model: 'Cap', color: 'สีขาว', type: 'Fuel' },
+                            { id: 2, plate: 'ฎฮ 9043 กท', model: 'Optra', color: 'สีดำ', type: 'Fuel' },
+                            { id: 3, plate: '1ขท 3650 กท', model: 'Optra', color: 'สีเทา', type: 'Fuel' },
+                            { id: 4, plate: 'สท 4690 กท', model: 'Optra', color: 'สีขาว', type: 'Fuel' },
+                            { id: 5, plate: '3ขช 2404 กท', model: 'Optra', color: 'สีเงิน', type: 'Fuel' },
+                            { id: 6, plate: '3ขช 3222 กท', model: 'Cap', color: 'สีน้ำตาล', type: 'Fuel' },
+                            { id: 7, plate: 'บ 3004 กท', model: 'MG4', color: 'สีขาว', type: 'EV' },
+                            { id: 8, plate: 'ฮ 2227 กท', model: 'MG4', color: 'สีเทา', type: 'EV' }
+                        ];
+                        return;
+                    }
+
+                    try {
+                        const carsRef = window.firebaseRef(window.firebaseDB, 'cars');
+                        const snapshot = await window.firebaseGet(carsRef);
+
+                        if (snapshot.exists()) {
+                            const data = snapshot.val();
+                            const carsArray = Object.keys(data)
+                                .filter(k => k !== '_placeholder')
+                                .map(k => ({ firebaseKey: k, ...data[k] }))
+                                .filter(c => c.active !== false)
+                                .sort((a, b) => (a.id || 0) - (b.id || 0));
+
+                            cars.value = carsArray;
+                            console.log('✅ Cars loaded from Firebase:', carsArray.length, carsArray.map(c => c.plate));
+                        } else {
+                            console.warn('No cars in Firebase, using fallback');
+                            cars.value = [
+                                { id: 1, plate: 'ญช 908 กท', model: 'Cap', color: 'สีขาว', type: 'Fuel' },
+                                { id: 2, plate: 'ฎฮ 9043 กท', model: 'Optra', color: 'สีดำ', type: 'Fuel' },
+                                { id: 3, plate: '1ขท 3650 กท', model: 'Optra', color: 'สีเทา', type: 'Fuel' },
+                                { id: 4, plate: 'สท 4690 กท', model: 'Optra', color: 'สีขาว', type: 'Fuel' },
+                                { id: 5, plate: '3ขช 2404 กท', model: 'Optra', color: 'สีเงิน', type: 'Fuel' },
+                                { id: 6, plate: '3ขช 3222 กท', model: 'Cap', color: 'สีน้ำตาล', type: 'Fuel' },
+                                { id: 7, plate: 'บ 3004 กท', model: 'MG4', color: 'สีขาว', type: 'EV' },
+                                { id: 8, plate: 'ฮ 2227 กท', model: 'MG4', color: 'สีเทา', type: 'EV' }
+                            ];
+                        }
+                    } catch (error) {
+                        console.error('❌ Fetch cars error:', error);
+                    }
+                };
 
                 const form = reactive({
                     requester: '',
@@ -323,7 +372,7 @@
                 // Computed: Find the selected car details from our selectable list OR fallback to static list if needed
                 // But stricter is better: find in selectableCars
                 const selectedCar = computed(() => {
-                    return selectableCars.value.find(c => c.id === form.carId) || cars.find(c => c.id === form.carId);
+                    return selectableCars.value.find(c => c.id === form.carId) || cars.value.find(c => c.id === form.carId);
                 });
 
                 const calculatedDistance = computed(() => {
@@ -476,32 +525,59 @@
                 };
 
                 const fetchMyBookings = async (userId) => {
+                    console.log('🔥 Fetching my bookings from Firebase for user:', userId);
+
                     try {
-                        const response = await fetch(API_URL);
-                        const data = await response.json();
+                        if (!window.firebaseDB || !window.firebaseRef || !window.firebaseGet) {
+                            console.error('❌ Firebase not initialized');
+                            selectableCars.value = [];
+                            return;
+                        }
 
-                        // Filter: My UserID + Status 'Approved' + Personal use only (purpose contains "[ส่วนตัว]")
-                        const myApproved = data.filter(b =>
-                            b.userId === userId &&
-                            b.status === 'Approved' &&
-                            b.purpose && b.purpose.includes('[ส่วนตัว]')
-                        );
+                        const bookingsRef = window.firebaseRef(window.firebaseDB, 'bookings');
+                        const snapshot = await window.firebaseGet(bookingsRef);
 
-                        // Map to selectable options by combining with static car definitions for details
-                        // Booking has: carPlate, carModel. We need to find the matching 'static' car to get its ID, Type, Color
+                        if (!snapshot.exists()) {
+                            console.log('ℹ️ No bookings in Firebase');
+                            selectableCars.value = [];
+                            return;
+                        }
 
+                        const allBookings = snapshot.val();
+
+                        // Filter: My UserID + Status 'Approved' + Personal use only
+                        const myApproved = [];
+                        for (const key in allBookings) {
+                            const b = allBookings[key];
+                            const isMyBooking = b.userId === userId;
+                            const isApproved = b.status === 'Approved';
+                            const isPersonal = b.usageType === 'Personal' ||
+                                (b.combinedPurpose && b.combinedPurpose.includes('[ส่วนตัว]')) ||
+                                (b.purpose && b.purpose.includes('[ส่วนตัว]'));
+
+                            if (isMyBooking && isApproved && isPersonal) {
+                                myApproved.push({
+                                    firebaseKey: key,
+                                    bookingId: b.bookingId || key,
+                                    userId: b.userId,
+                                    carPlate: b.carPlate,
+                                    carModel: b.carModel,
+                                    start: b.startDate || b.start,
+                                    end: b.endDate || b.end,
+                                    purpose: b.combinedPurpose || b.purpose
+                                });
+                            }
+                        }
+
+                        // Map to selectable options by combining with static car definitions
                         const options = [];
-
                         myApproved.forEach(booking => {
-                            // Find car details in our static database based on Plate
-                            // Static cars array: { id, plate, model, color, type }
-                            const carDetails = cars.find(c => c.plate === booking.carPlate);
-
+                            const carDetails = cars.value.find(c => c.plate === booking.carPlate);
                             if (carDetails) {
                                 options.push({
-                                    ...carDetails, // id, plate, model, color, type
-                                    bookingId: booking.id, // Keep track of booking ID if needed
-                                    sheetRow: booking.sheetRow, // Row number in Bookings sheet for easy update
+                                    ...carDetails,
+                                    bookingId: booking.bookingId,
+                                    firebaseKey: booking.firebaseKey,
                                     start: booking.start,
                                     end: booking.end,
                                     displayLabel: `${carDetails.plate} - ${carDetails.model} (${carDetails.color})`
@@ -509,15 +585,13 @@
                             }
                         });
 
-                        // Log for debugging
-                        console.log('My Approved Bookings:', myApproved);
-                        console.log('Selectable Options:', options);
-
+                        console.log('✅ My Approved Personal Bookings:', myApproved.length);
+                        console.log('✅ Selectable Options:', options);
                         selectableCars.value = options;
 
                     } catch (err) {
-                        console.error('Failed to fetch bookings', err);
-                        // Fallback? Or just leave empty
+                        console.error('❌ Firebase fetch error:', err);
+                        selectableCars.value = [];
                     }
                 };
 
@@ -540,7 +614,7 @@
                     try {
                         // Using the provided LIFF ID with race condition
                         await Promise.race([
-                            liff.init({ liffId: "2008929780-8kHcdplV" }),
+                            liff.init({ liffId: "2008863808-6cU9sNGm" }),
                             liffTimeout
                         ]);
 
@@ -578,6 +652,7 @@
 
                 onMounted(() => {
                     initLiff();
+                    fetchCarsFromFirebase(); // Load cars from Firebase
                 });
 
                 return {
